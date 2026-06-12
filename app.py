@@ -2,6 +2,7 @@ import streamlit as st
 from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
+from components.haiku_pundit import get_match_narrative
 
 st.set_page_config(
     page_title="WC 2026 Dashboard",
@@ -48,7 +49,7 @@ with col_refresh:
 st.divider()
 
 # ── Section 1: Completed match highlights ────────────────────
-from components.haiku_pundit import get_match_narrative
+
 
 finished = recent_results
 
