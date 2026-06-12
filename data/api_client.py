@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = "https://api.football-data.org/v4"
-HEADERS = {"X-Auth-Token": os.getenv("FOOTBALLDATA_API_KEY")}
+import streamlit as st
+HEADERS = {"X-Auth-Token": st.secrets.get("FOOTBALLDATA_API_KEY") or os.getenv("FOOTBALLDATA_API_KEY")}
 
 
 def get_standings():

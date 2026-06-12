@@ -6,7 +6,8 @@ from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+import streamlit as st
+client = anthropic.Anthropic(api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY"))
 
 
 @st.cache_data(ttl=3600*6, show_spinner=False)

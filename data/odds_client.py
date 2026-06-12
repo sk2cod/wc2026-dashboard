@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = "https://api.the-odds-api.com/v4"
-API_KEY = os.getenv("ODDS_API_KEY")
+import streamlit as st
+API_KEY = st.secrets.get("ODDS_API_KEY") or os.getenv("ODDS_API_KEY")
 
 
 def get_wc_odds():
