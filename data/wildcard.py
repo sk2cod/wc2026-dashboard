@@ -35,8 +35,8 @@ def calculate_wildcard(standings):
         df = pd.DataFrame(rows)
         all_groups.append(df)
 
-        # Extract 3rd place team
-        third = df[df["position"] == 3]
+        # Extract 3rd place team only if they have played
+        third = df[(df["position"] == 3) & (df["played"] > 0)]
         if not third.empty:
             third_place_teams.append(third.iloc[0])
 

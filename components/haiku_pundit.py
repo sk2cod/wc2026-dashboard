@@ -63,27 +63,28 @@ def get_betting_insight(home: str, away: str, home_prob: float,
                          draw_prob: float, away_prob: float,
                          home_history: str, away_history: str) -> str:
     prompt = f"""You are a sharp football analyst covering the 2026 World Cup.
-Analyse this upcoming match and give exactly 2 bullet points.
-No filler, no preamble, no betting advice — just analytical insight.
+    Analyse this upcoming match and give exactly 3 bullet points.
+    No filler, no preamble.
 
-Match: {home} vs {away}
-Market implied probabilities: {home} {home_prob}% | Draw {draw_prob}% | {away} {away_prob}%
+    Match: {home} vs {away}
+    Market implied probabilities: {home} {home_prob}% | Draw {draw_prob}% | {away} {away_prob}%
 
-{home} recent form:
-{home_history if home_history else "No matches played yet."}
+    {home} recent form:
+    {home_history if home_history else "No matches played yet."}
 
-{away} recent form:
-{away_history if away_history else "No matches played yet."}
+    {away} recent form:
+    {away_history if away_history else "No matches played yet."}
 
-Return exactly this format:
-📊 **Form vs Market:** [does the market reflect actual form — is one team over or underrated based on results]
-🚨 **Watch out:** [flag any trap game, upset potential, or key factor the odds might be ignoring]
+    Return exactly this format:
+    📊 **Form vs Market:** [does the market reflect actual form — is one team over or underrated based on results]
+    🚨 **Watch out:** [flag any trap game, upset potential, or key factor the odds might be ignoring]
+    🎲 **Bet on:** [one specific call — result market or side market like cards/goals/corners — with brief reasoning]
 
-2 bullets only. Be specific. No generic statements."""
+    3 bullets only. Be specific. No generic statements."""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=150,
+        max_tokens=300,
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text
