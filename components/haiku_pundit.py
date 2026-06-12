@@ -11,22 +11,24 @@ client = anthropic.Anthropic(api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.g
 
 
 @st.cache_data(ttl=3600*6, show_spinner=False)
-def get_pundit_briefing(team_name: str, context: str) -> str:
+def get_pundit_briefing(team_name: str, context: str, match_history: str) -> str:
     aest = timezone(timedelta(hours=10))
     today = datetime.now(aest).strftime("%Y-%m-%d")
-    # Cache key includes date so it refreshes daily
     _ = today
 
     prompt = f"""You are a sharp, witty football pundit covering the 2026 World Cup.
-Given the following team data, give exactly 3 bullet points.
+Given the following team data and match history, give exactly 3 bullet points.
 Be punchy, specific, and realistic. No fluff.
 
 {context}
 
+Match history:
+{match_history if match_history else "No matches played yet."}
+
 Return exactly this format:
-🎯 **Hopes:** [one sentence on their realistic chance of advancing]
-🟨 **Cards:** [one sentence on suspension risks — who is one yellow from missing a match]
-⚠️ **Risk:** [one sentence on their biggest threat or weakness]"""
+🎯 **Hopes:** [realistic chance of advancing based on form and upcoming fixtures]
+🟨 **Cards:** [suspension risks — who is one yellow from missing a knockout match]
+⚠️ **Risk:** [biggest threat or weakness based on actual match performance]"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",

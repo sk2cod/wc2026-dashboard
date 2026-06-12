@@ -293,6 +293,8 @@ if selected_team and selected_team != "— select —":
 
     if st.button(f"Brief me on {selected_team} ↗"):
         from components.haiku_pundit import get_pundit_briefing
+        from data.api_client import get_team_match_history
+
         with st.spinner("Consulting the Haiku Pundit..."):
             context = ""
             if team_row is not None:
@@ -306,5 +308,14 @@ if selected_team and selected_team != "— select —":
                     f"Goals for: {int(team_row['gf'])}\n"
                     f"Goals against: {int(team_row['ga'])}\n"
                 )
-            briefing = get_pundit_briefing(selected_team, context)
+
+            history = get_team_match_history(selected_team)
+            match_history = ""
+            for m in history:
+                match_history += (
+                    f"- {m['venue']} vs {m['opponent']}: "
+                    f"{m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                )
+
+            briefing = get_pundit_briefing(selected_team, context, match_history)
             st.markdown(briefing)

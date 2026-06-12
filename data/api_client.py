@@ -55,3 +55,36 @@ def get_match_details(match_id):
     )
     r.raise_for_status()
     return r.json()
+
+def get_team_match_history(team_name):
+    """Returns all finished matches for a specific team."""
+    all_matches = get_fixtures()
+    team_matches = []
+    for m in all_matches:
+        if m["status"] != "FINISHED":
+            continue
+        home = m["homeTeam"]["name"]
+        away = m["awayTeam"]["name"]
+        if team_name not in [home, away]:
+            continue
+        score = m["score"]["fullTime"]
+        is_home = home == team_name
+        opponent = away if is_home else home
+        team_goals = score["home"] if is_home else score["away"]
+        opp_goals = score["away"] if is_home else score["home"]
+
+        if team_goals > opp_goals:
+            outcome = "Win"
+        elif team_goals < opp_goals:
+            outcome = "Loss"
+        else:
+            outcome = "Draw"
+
+        team_matches.append({
+            "opponent": opponent,
+            "team_goals": team_goals,
+            "opp_goals": opp_goals,
+            "outcome": outcome,
+            "venue": "Home" if is_home else "Away"
+        })
+    return team_matches
