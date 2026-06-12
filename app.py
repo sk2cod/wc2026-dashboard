@@ -264,6 +264,27 @@ if todays_matches:
                             f"</div></div></div>",
                             unsafe_allow_html=True
                         )
+                    # Betting insight button
+                    if odds_match and status != "FINISHED":
+                        if st.button(f"💡 Match insight", key=f"insight_{match['id']}"):
+                            from components.haiku_pundit import get_betting_insight
+                            from data.api_client import get_team_match_history
+                            with st.spinner("Analysing..."):
+                                home_history = ""
+                                away_history = ""
+                                for m in get_team_match_history(home):
+                                    home_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                                for m in get_team_match_history(away):
+                                    away_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                                insight = get_betting_insight(
+                                    home, away,
+                                    odds_match["home_prob"],
+                                    odds_match["draw_prob"],
+                                    odds_match["away_prob"],
+                                    home_history,
+                                    away_history
+                                )
+                            st.markdown(insight)
                     st.write("")
 else:
     st.info("No matches scheduled today or tomorrow.")

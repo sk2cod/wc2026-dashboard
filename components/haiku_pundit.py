@@ -57,3 +57,33 @@ def get_match_narrative(match_id: int, home: str, away: str,
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text.strip()
+
+@st.cache_data(ttl=3600*6, show_spinner=False)
+def get_betting_insight(home: str, away: str, home_prob: float,
+                         draw_prob: float, away_prob: float,
+                         home_history: str, away_history: str) -> str:
+    prompt = f"""You are a sharp football analyst covering the 2026 World Cup.
+Analyse this upcoming match and give exactly 2 bullet points.
+No filler, no preamble, no betting advice — just analytical insight.
+
+Match: {home} vs {away}
+Market implied probabilities: {home} {home_prob}% | Draw {draw_prob}% | {away} {away_prob}%
+
+{home} recent form:
+{home_history if home_history else "No matches played yet."}
+
+{away} recent form:
+{away_history if away_history else "No matches played yet."}
+
+Return exactly this format:
+📊 **Form vs Market:** [does the market reflect actual form — is one team over or underrated based on results]
+🚨 **Watch out:** [flag any trap game, upset potential, or key factor the odds might be ignoring]
+
+2 bullets only. Be specific. No generic statements."""
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=150,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return message.content[0].text
