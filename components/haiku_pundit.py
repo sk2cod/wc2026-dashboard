@@ -34,3 +34,24 @@ Return exactly this format:
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text
+
+@st.cache_data(ttl=3600*12, show_spinner=False)
+def get_match_narrative(match_id: int, home: str, away: str,
+                         home_score: int, away_score: int) -> str:
+    prompt = f"""You are a sharp football pundit covering the 2026 World Cup.
+    Give exactly 2 bullet points about this completed match. No filler, no preamble.
+
+    Match: {home} {home_score} - {away_score} {away}
+
+    Return exactly this format:
+    - [How the match unfolded — who dominated, key moment, any drama]
+    - [What this result means for the group — standings impact, who is under pressure]
+
+    2 bullets only. Be specific and punchy. No extra text."""
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=150,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return message.content[0].text.strip()

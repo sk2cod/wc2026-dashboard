@@ -47,31 +47,52 @@ with col_refresh:
 
 st.divider()
 
-# ── Section 1: Headline numbers ───────────────────────────────
-finished = recent_results
-goals = sum(
-    (m["score"]["fullTime"]["home"] or 0) + (m["score"]["fullTime"]["away"] or 0)
-    for m in finished
-)
-upsets = 0
-for m in finished:
-    odds_match = next(
-        (o for o in odds
-         if m["homeTeam"]["name"] in o["home"] or
-         m["awayTeam"]["name"] in o["away"]), None
-    )
-    if odds_match:
-        score = m["score"]["fullTime"]
-        if score["home"] > score["away"] and odds_match["home_prob"] < 40:
-            upsets += 1
-        elif score["away"] > score["home"] and odds_match["away_prob"] < 40:
-            upsets += 1
+# ── Section 1: Completed match highlights ────────────────────
+from components.haiku_pundit import get_match_narrative
 
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Matches Played", len(finished))
-m2.metric("Goals Scored", goals)
-m3.metric("Avg Goals/Match", f"{goals / len(finished):.1f}" if finished else "—")
-m4.metric("Matches Today & Tomorrow", len(todays_matches))
+finished = recent_results
+
+st.subheader("Recent Results")
+
+if finished:
+    # Show last 8 results max
+    for match in finished[-8:]:
+        home = match["homeTeam"]["name"]
+        away = match["awayTeam"]["name"]
+        score = match["score"]["fullTime"]
+        home_score = score["home"] or 0
+        away_score = score["away"] or 0
+        group = match.get("group", "").replace(
+            "GROUP_", "Grp ").replace("_", " ").title()
+        match_date = match["utcDate"][:10]
+
+        # Determine result indicator
+        if home_score > away_score:
+            result = f"🏆 {home} win"
+        elif away_score > home_score:
+            result = f"🏆 {away} win"
+        else:
+            result = "🤝 Draw"
+
+        # Get one-line narrative from Haiku
+        narrative = get_match_narrative(
+            match["id"], home, away, home_score, away_score
+        )
+
+        st.markdown(
+            f"<div style='padding:8px 0;border-bottom:0.5px solid #eee;'>"
+            f"<div style='display:flex;align-items:flex-start;gap:16px;'>"
+            f"<div style='min-width:280px;'>"
+            f"<div style='font-size:14px;font-weight:600;'>{home} {home_score}–{away_score} {away}</div>"
+            f"<div style='font-size:14px;color:#888;margin-top:2px;'>{group} · {match_date}</div>"
+            f"</div>"
+            f"<span style='font-size:13px;color:#555;min-width:140px;'>{result}</span>"
+            f"<span style='font-size:13px;color:#444;font-style:italic;flex:1;'>{narrative}</span>"
+            f"</div></div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.info("No completed matches yet.")
 
 st.divider()
 from datetime import datetime, timezone, timedelta

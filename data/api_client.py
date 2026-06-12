@@ -46,3 +46,12 @@ def get_recent_results():
         m for m in all_matches
         if m.get("status") == "FINISHED"
     ]
+
+def get_match_details(match_id):
+    """Returns details for a specific match including goals."""
+    r = requests.get(
+        f"{BASE_URL}/matches/{match_id}",
+        headers=HEADERS
+    )
+    r.raise_for_status()
+    return r.json()
