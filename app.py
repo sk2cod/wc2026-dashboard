@@ -149,19 +149,55 @@ st.subheader("Wildcard Ladder — Best 8 Third-Place Teams")
 st.caption("Top 8 of 12 third-place teams advance to Round of 32")
 
 if not wildcard_df.empty:
+    rows_html = ""
     for _, row in wildcard_df.iterrows():
         rank = int(row["wildcard_rank"])
-        is_cutoff = rank == 9
-        if is_cutoff:
-            st.markdown("---  ✂️ *cut-off line — below this does not advance* ---")
+        if rank == 9:
+            rows_html += f"""
+            <tr>
+                <td colspan='5' style='padding:4px 8px;font-size:11px;
+                color:var(--color-text-tertiary);border-top:1.5px dashed #888;
+                text-align:center;'>✂️ cut-off — below this does not advance</td>
+            </tr>"""
 
-        status_color = "🟢" if row["status"] == "IN" else "🔴"
-        col_r, col_t, col_p, col_gd, col_s = st.columns([1, 4, 1, 1, 2])
-        col_r.write(f"**{rank}**")
-        col_t.write(f"{row['team']}")
-        col_p.write(f"{int(row['points'])}pts")
-        col_gd.write(f"GD {row['gd']:+d}")
-        col_s.write(f"{status_color} {row['status']}")
+        status_color = "#1D9E75" if row["status"] == "IN" else "#E24B4A"
+        status_text = row["status"]
+        flag = get_flag_img(row["team"])
+
+        rows_html += f"""
+        <tr>
+            <td style='padding:6px 8px;font-size:13px;font-weight:600;
+            color:var(--color-text-secondary);'>#{rank}</td>
+            <td style='padding:6px 8px;font-size:13px;
+            color:var(--color-text-primary);'>{flag}{row['team']}</td>
+            <td style='padding:6px 8px;font-size:13px;
+            color:var(--color-text-secondary);text-align:center;'>{int(row['points'])}pts</td>
+            <td style='padding:6px 8px;font-size:13px;
+            color:var(--color-text-secondary);text-align:center;'>GD {row['gd']:+d}</td>
+            <td style='padding:6px 8px;font-size:13px;font-weight:600;
+            color:{status_color};text-align:center;'>{status_text}</td>
+        </tr>"""
+
+    st.markdown(
+        f"""<table style='width:100%;border-collapse:collapse;'>
+        <thead>
+            <tr style='border-bottom:1px solid var(--color-border-tertiary);'>
+                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                text-align:left;font-weight:500;'>#</th>
+                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                text-align:left;font-weight:500;'>Team</th>
+                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                text-align:center;font-weight:500;'>Pts</th>
+                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                text-align:center;font-weight:500;'>GD</th>
+                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                text-align:center;font-weight:500;'>Status</th>
+            </tr>
+        </thead>
+        <tbody>{rows_html}</tbody>
+        </table>""",
+        unsafe_allow_html=True
+    )
 
 st.divider()
 # ── Section 3.5: Top Scorers ──────────────────────────────────
