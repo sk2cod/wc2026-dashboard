@@ -1,4 +1,4 @@
-from data.api_client import get_standings, get_todays_matches, get_recent_results
+from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 
@@ -22,7 +22,7 @@ if not wildcard_df.empty:
 
 # Test 3: Today's matches
 print("\n3. Today's matches...")
-todays = get_todays_matches()
+todays = get_todays_and_tomorrows_matches()
 if todays:
     for m in todays:
         home = m['homeTeam']['name']
@@ -52,3 +52,11 @@ else:
     print("   No upcoming odds available right now")
 
 print("\nData layer ready.")
+
+print("\n6. Top scorers...")
+from data.api_client import get_top_scorers
+scorers = get_top_scorers()
+for s in scorers[:5]:
+    player = s.get("player", {})
+    team = s.get("team", {})
+    print(f"   {player.get('name')} ({team.get('name')}) — {s.get('goals')} goals")

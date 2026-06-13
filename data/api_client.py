@@ -88,3 +88,12 @@ def get_team_match_history(team_name):
             "venue": "Home" if is_home else "Away"
         })
     return team_matches
+
+def get_top_scorers(limit: int = 10):
+    """Returns top goal scorers for the tournament."""
+    r = requests.get(
+        f"{BASE_URL}/competitions/WC/scorers?limit={limit}",
+        headers=HEADERS
+    )
+    r.raise_for_status()
+    return r.json().get("scorers", [])

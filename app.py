@@ -4,6 +4,7 @@ from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 from components.haiku_pundit import get_match_narrative
 from data.buzz_client import get_buzz_stories
+from data.flags import get_flag, get_flag_img
 
 st.set_page_config(
     page_title="WC 2026 Dashboard",
@@ -33,12 +34,18 @@ def load_odds():
 def load_buzz(n=5):
     return get_buzz_stories(max_results=n)
 
+@st.cache_data(ttl=600)
+def load_scorers():
+    from data.api_client import get_top_scorers
+    return get_top_scorers(limit=10)
+
 # ── Load data ─────────────────────────────────────────────────
 standings = load_standings()
 all_groups, wildcard_df = calculate_wildcard(standings)
 todays_matches = load_fixtures()
 recent_results = load_results()
 odds = load_odds()
+top_scorers = load_scorers()
 
 # ── Header ────────────────────────────────────────────────────
 col_title, col_refresh = st.columns([6, 1])
@@ -138,7 +145,7 @@ for i, group_df in enumerate(all_groups):
         for _, row in group_df.iterrows():
             badge = status_badge(row["position"], row["points"], row["played"])
             st.markdown(
-                f"{badge} {row['team']} — "
+                f"{badge} {row['team']} {get_flag_img(row['team'])} — "
                 f"**{row['points']}pts** "
                 f"(GD: {row['gd']:+d})",
                 unsafe_allow_html=True
@@ -165,6 +172,35 @@ if not wildcard_df.empty:
         col_p.write(f"{int(row['points'])}pts")
         col_gd.write(f"GD {row['gd']:+d}")
         col_s.write(f"{status_color} {row['status']}")
+
+st.divider()
+# ── Section 3.5: Top Scorers ──────────────────────────────────
+st.subheader("Top Scorers")
+st.caption("Golden Boot leaderboard — most goals in the tournament")
+
+if top_scorers:
+    for i, s in enumerate(top_scorers):
+        player = s.get("player", {})
+        team = s.get("team", {})
+        goals = s.get("goals", 0)
+        assists = s.get("assists", 0)
+        penalties = s.get("penalties", 0)
+        name = player.get("name", "")
+        team_name = team.get("name", "")
+        nationality = player.get("nationality", "")
+
+        st.markdown(
+            f"<div style='padding:6px 0;border-bottom:0.5px solid #eee;display:flex;align-items:center;gap:12px;'>"
+            f"<span style='font-size:13px;font-weight:600;color:#888;min-width:24px;'>#{i+1}</span>"
+            f"<span style='font-size:14px;font-weight:600;color:#222;flex:1;'>{name}</span>"
+            f"<span style='font-size:13px;color:#555;min-width:160px;'>{get_flag(team_name)} {team_name}</span>"
+            f"<span style='font-size:13px;color:#444;min-width:80px;'>⚽ {goals} goal{'s' if goals != 1 else ''}</span>"
+            f"<span style='font-size:12px;color:#888;min-width:80px;'>{'🅿 ' + str(penalties) + ' pen' if penalties else ''}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.info("No goals scored yet.")
 
 st.divider()
 
