@@ -3,6 +3,7 @@ from data.api_client import get_standings, get_todays_and_tomorrows_matches, get
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 from components.haiku_pundit import get_match_narrative
+from data.buzz_client import get_buzz_stories
 
 st.set_page_config(
     page_title="WC 2026 Dashboard",
@@ -27,6 +28,10 @@ def load_results():
 def load_odds():
     raw = get_wc_odds()
     return parse_implied_probability(raw)
+
+@st.cache_data(ttl=3600*12)
+def load_buzz(n=5):
+    return get_buzz_stories(max_results=n)
 
 # ── Load data ─────────────────────────────────────────────────
 standings = load_standings()
@@ -340,3 +345,53 @@ if selected_team and selected_team != "— select —":
 
             briefing = get_pundit_briefing(selected_team, context, match_history)
             st.markdown(briefing)
+
+# ── Section 6: Buzz ───────────────────────────────────────────
+st.divider()
+st.subheader("🔥 Buzz")
+st.caption("Trending stories, fun facts and off-the-pitch drama")
+
+if "buzz_count" not in st.session_state:
+    st.session_state.buzz_count = 5
+if "buzz_stories" not in st.session_state:
+    st.session_state.buzz_stories = None
+
+
+if st.session_state.buzz_stories is None:
+    st.session_state.buzz_stories = get_buzz_stories(5)
+buzz_stories = st.session_state.buzz_stories
+
+for i, story in enumerate(buzz_stories):
+
+
+    read_more = f"· <a href='{story['url']}' target='_blank'>Read more</a>" if story['url'] else ""
+    with st.container():
+        st.markdown(
+            f"<div style='padding:8px 0;border-bottom:0.5px solid #eee;'>"
+            f"<div style='display:flex;align-items:flex-start;gap:10px;'>"
+            f"<span style='font-size:20px;'>{story['icon']}</span>"
+            f"<div style='flex:1;'>"
+            f"<div style='font-size:14px;font-weight:600;color:#222;'>{story['title']}</div>"
+            f"<div style='font-size:13px;color:#444;margin-top:2px;'>{story['content']}</div>"
+            f"<div style='font-size:11px;color:#888;margin-top:4px;'>"
+            f"via {story['source']} "
+            f"{read_more}"
+            f"</div>"
+            f"</div>"
+            f"</div></div>",
+            unsafe_allow_html=True
+        )
+
+
+
+if st.button("Load 5 more ↓"):
+    with st.spinner("Fetching more stories..."):
+        existing_urls = {s["url"] for s in st.session_state.buzz_stories}
+        from data.buzz_client import get_buzz_stories_uncached
+        new_stories = get_buzz_stories_uncached(5)
+        unique_new = [s for s in new_stories if s["url"] not in existing_urls]
+        if unique_new:
+            st.session_state.buzz_stories = st.session_state.buzz_stories + unique_new
+        else:
+            st.warning("No new stories found — check back later.")
+    st.rerun()

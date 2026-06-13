@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components
+
 
 
 def render_bracket(all_groups, wildcard_df):
@@ -290,4 +290,4 @@ def render_bracket(all_groups, wildcard_df):
     </div>
     """
 
-    components.html(html, height=750, scrolling=False)
+    st.html(html)
