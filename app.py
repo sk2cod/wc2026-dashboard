@@ -76,6 +76,7 @@ if finished:
         group = match.get("group", "").replace(
             "GROUP_", "Grp ").replace("_", " ").title()
         match_date = match["utcDate"][:10]
+        match_id = match["id"]
 
         if home_score > away_score:
             result = f"🏆 {home} win"
@@ -84,24 +85,29 @@ if finished:
         else:
             result = "🤝 Draw"
 
-        narrative_raw = get_match_narrative(
-            match["id"], home, away, home_score, away_score
-        )
-        bullets = re.split(r'\n[•\-\*]|\n\n', narrative_raw.strip())
-        bullets = [b.strip().lstrip("•-* ") for b in bullets if b.strip()]
-        narrative = "".join(f"<div style='margin-bottom:4px;'>• {b}</div>" for b in bullets)
+        col_info, col_btn = st.columns([6, 2])
+        with col_info:
+            st.markdown(
+                f"<div style='padding:6px 0;'>"
+                f"<div style='font-size:14px;font-weight:600;color:var(--color-text-primary);'>{home} {home_score}–{away_score} {away}</div>"
+                f"<div style='font-size:12px;color:var(--color-text-tertiary);margin-top:2px;'>{group} · {match_date} · {result}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+        with col_btn:
+            analysis_clicked = st.button("📖 Analysis", key=f"analysis_{match_id}")
 
-        st.markdown(
-            f"<div style='padding:8px 0;border-bottom:0.5px solid #eee;'>"
-            f"<div style='display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;'>"
-            f"<div style='min-width:200px;flex:1;'>"
-            f"<div style='font-size:14px;font-weight:600;color:var(--color-text-primary);'>{home} {home_score}–{away_score} {away}</div>"
-            f"<div style='font-size:12px;color:var(--color-text-tertiary);margin-top:2px;'>{group} · {match_date} · {result}</div>"
-            f"</div>"
-            f"<div style='font-size:13px;color:var(--color-text-secondary);font-style:italic;flex:2;min-width:200px;line-height:1.6;'>{narrative}</div>"
-            f"</div></div>",
-            unsafe_allow_html=True
-        )
+        if analysis_clicked:
+            with st.spinner("Generating analysis..."):
+                narrative_raw = get_match_narrative(
+                    match_id, home, away, home_score, away_score
+                )
+                bullets = re.split(r'\n[•\-\*]|\n\n', narrative_raw.strip())
+                bullets = [b.strip().lstrip("•-* ") for b in bullets if b.strip()]
+                for bullet in bullets:
+                    st.markdown(f"• {bullet}")
+
+        st.markdown("<div style='border-bottom:0.5px solid #eee;margin:4px 0;'></div>", unsafe_allow_html=True)
 else:
     st.info("No completed matches yet.")
 
