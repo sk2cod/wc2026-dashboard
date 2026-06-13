@@ -99,8 +99,8 @@ if finished:
             f"<div style='font-size:14px;font-weight:600;'>{home} {home_score}–{away_score} {away}</div>"
             f"<div style='font-size:14px;color:#888;margin-top:2px;'>{group} · {match_date}</div>"
             f"</div>"
-            f"<span style='font-size:13px;color:#555;min-width:140px;'>{result}</span>"
-            f"<span style='font-size:13px;color:#444;font-style:italic;flex:1;'>{narrative}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:140px;'>{result}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);font-style:italic;flex:1;'>{narrative}</span>"
             f"</div></div>",
             unsafe_allow_html=True
         )
@@ -192,9 +192,9 @@ if top_scorers:
         st.markdown(
             f"<div style='padding:6px 0;border-bottom:0.5px solid #eee;display:flex;align-items:center;gap:12px;'>"
             f"<span style='font-size:13px;font-weight:600;color:#888;min-width:24px;'>#{i+1}</span>"
-            f"<span style='font-size:14px;font-weight:600;color:#222;flex:1;'>{name}</span>"
-            f"<span style='font-size:13px;color:#555;min-width:160px;'>{get_flag(team_name)} {team_name}</span>"
-            f"<span style='font-size:13px;color:#444;min-width:80px;'>⚽ {goals} goal{'s' if goals != 1 else ''}</span>"
+            f"<span style='font-size:14px;font-weight:600;color:var(--color-text-primary);flex:1;'>{name}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:160px;'>{get_flag(team_name)} {team_name}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:80px;'>⚽ {goals} goal{'s' if goals != 1 else ''}</span>"
             f"<span style='font-size:12px;color:#888;min-width:80px;'>{'🅿 ' + str(penalties) + ' pen' if penalties else ''}</span>"
             f"</div>",
             unsafe_allow_html=True
