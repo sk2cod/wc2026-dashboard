@@ -33,10 +33,16 @@ def get_todays_and_tomorrows_matches():
     tomorrow_aest = (now_aest + timedelta(days=1)).strftime("%Y-%m-%d")
 
     all_matches = get_fixtures()
-    return [
-        m for m in all_matches
-        if m.get("utcDate", "")[:10] in [today_aest, tomorrow_aest]
-    ]
+    results = []
+    for m in all_matches:
+        utc_str = m.get("utcDate", "")
+        if not utc_str:
+            continue
+        utc_dt = datetime.strptime(utc_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        aest_date = utc_dt.astimezone(aest).strftime("%Y-%m-%d")
+        if aest_date in [today_aest, tomorrow_aest]:
+            results.append(m)
+    return results
 
 
 def get_recent_results():
