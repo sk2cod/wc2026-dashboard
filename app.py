@@ -1,10 +1,11 @@
 import streamlit as st
-from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results
+from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results, get_top_scorers
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 from components.haiku_pundit import get_match_narrative
 from data.buzz_client import get_buzz_stories
 from data.flags import get_flag, get_flag_img
+
 
 st.set_page_config(
     page_title="WC 2026 Dashboard",
@@ -36,7 +37,6 @@ def load_buzz(n=5):
 
 @st.cache_data(ttl=600)
 def load_scorers():
-    from data.api_client import get_top_scorers
     return get_top_scorers(limit=10)
 
 # ── Load data ─────────────────────────────────────────────────
