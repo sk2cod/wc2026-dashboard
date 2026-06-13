@@ -61,14 +61,12 @@ with col_refresh:
 st.divider()
 
 # ── Section 1: Completed match highlights ────────────────────
-
-
+import re
 finished = recent_results
 
 st.subheader("Recent Results")
 
 if finished:
-    # Show last 8 results max
     for match in finished[-8:]:
         home = match["homeTeam"]["name"]
         away = match["awayTeam"]["name"]
@@ -79,7 +77,6 @@ if finished:
             "GROUP_", "Grp ").replace("_", " ").title()
         match_date = match["utcDate"][:10]
 
-        # Determine result indicator
         if home_score > away_score:
             result = f"🏆 {home} win"
         elif away_score > home_score:
@@ -87,33 +84,26 @@ if finished:
         else:
             result = "🤝 Draw"
 
-        # Get one-line narrative from Haiku
-        narrative = get_match_narrative(
+        narrative_raw = get_match_narrative(
             match["id"], home, away, home_score, away_score
         )
+        bullets = re.split(r'\n[•\-\*]|\n\n', narrative_raw.strip())
+        bullets = [b.strip().lstrip("•-* ") for b in bullets if b.strip()]
+        narrative = "".join(f"<div style='margin-bottom:4px;'>• {b}</div>" for b in bullets)
 
         st.markdown(
             f"<div style='padding:8px 0;border-bottom:0.5px solid #eee;'>"
-            f"<div style='display:flex;align-items:flex-start;gap:16px;'>"
-            f"<div style='min-width:280px;'>"
-            f"<div style='font-size:14px;font-weight:600;'>{home} {home_score}–{away_score} {away}</div>"
-            f"<div style='font-size:14px;color:#888;margin-top:2px;'>{group} · {match_date}</div>"
+            f"<div style='display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;'>"
+            f"<div style='min-width:200px;flex:1;'>"
+            f"<div style='font-size:14px;font-weight:600;color:var(--color-text-primary);'>{home} {home_score}–{away_score} {away}</div>"
+            f"<div style='font-size:12px;color:var(--color-text-tertiary);margin-top:2px;'>{group} · {match_date} · {result}</div>"
             f"</div>"
-            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:140px;'>{result}</span>"
-            f"<span style='font-size:13px;color:var(--color-text-secondary);font-style:italic;flex:1;'>{narrative}</span>"
+            f"<div style='font-size:13px;color:var(--color-text-secondary);font-style:italic;flex:2;min-width:200px;line-height:1.6;'>{narrative}</div>"
             f"</div></div>",
             unsafe_allow_html=True
         )
 else:
     st.info("No completed matches yet.")
-
-st.divider()
-from datetime import datetime, timezone, timedelta
-aest = timezone(timedelta(hours=10))
-last_updated = datetime.now(aest).strftime("%d %b %Y %I:%M %p AEST")
-st.caption(f"Last updated: {last_updated}")
-
-st.divider()
 
 # ── Section 1.5: Bracket ──────────────────────────────────────
 st.subheader("Tournament Bracket")
