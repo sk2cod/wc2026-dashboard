@@ -39,11 +39,14 @@ def categorise(title: str) -> str:
 
 @st.cache_data(ttl=3600*12, show_spinner=False)
 def get_buzz_stories(max_results: int = 5) -> list:
-    """Fetches and filters trending FIFA World Cup 2026 buzz stories via Tavily + Haiku."""
+    """Fetches and filters fresh FIFA World Cup 2026 buzz stories via Tavily + Haiku."""
     try:
+        from datetime import datetime, timezone, timedelta
+        aest = timezone(timedelta(hours=10))
+        today_str = datetime.now(aest).strftime("%B %d %Y")
+
         client = get_tavily_client()
 
-        # Multiple targeted searches for better variety
         import random
         all_queries = [
             "FIFA World Cup 2026 fun facts unusual stories viral",
@@ -55,23 +58,19 @@ def get_buzz_stories(max_results: int = 5) -> list:
             "World Cup 2026 underdog stories surprising results",
             "FIFA 2026 celebrity fans music entertainment",
         ]
-        # Rotate queries based on current hour to get variety
-        from datetime import datetime
-        hour = datetime.now().hour
-        start = (hour % len(all_queries))
-        queries = all_queries[start:start + 3] or all_queries[:3]
+        queries = random.sample(all_queries, 3)
 
         raw_results = []
         for query in queries:
             response = client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=3,
-                include_answer=False
+                max_results=4,
+                include_answer=False,
+                days=2
             )
             raw_results.extend(response.get("results", []))
 
-        # Build raw content for Haiku to process
         raw_text = ""
         url_map = {}
         for i, r in enumerate(raw_results):
@@ -82,22 +81,33 @@ def get_buzz_stories(max_results: int = 5) -> list:
             raw_text += f"[{i}] {title}: {content} (source: {source}, url: {url})\n\n"
             url_map[i] = {"url": url, "source": source}
 
-        # Ask Haiku to filter and rewrite
         import anthropic
         import os
         llm_client = anthropic.Anthropic(
             api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         )
 
-        prompt = f"""You are a football buzz editor. From the raw search results below, 
-pick the {max_results} most interesting, surprising, or fun stories about the 2026 World Cup.
+        prompt = f"""You are a football buzz editor for a daily World Cup 2026 briefing.
+Today's date is {today_str}. From the raw search results below, 
+pick the {max_results} most interesting "did you know" style facts or stories.
 
-Ignore: generic news, junk social media captions, non-English content, boring previews.
-Keep: fun facts, viral moments, unusual stories, quirky player/team news, venue facts, cultural moments.
+STRONGLY PREFER:
+- Specific facts about a venue, stadium, city, or weather for upcoming/recent matches
+- A surprising stat, record, or moment tied to a specific team or player
+- Recent reactions, controversies, or fan culture moments from actual matches played
+- Anything with a specific number, name, date, or place that feels like trivia
+
+STRONGLY AVOID:
+- Match results, scores, or summaries of who won/lost/drew — this is covered elsewhere
+- Anything starting with team names followed by a score or "defeated", "won", "drew"
+- Generic statements about "48 teams", "104 matches", tournament format/history that apply to the whole event with no specific team, player, venue, or date attached
+- Vague marketing-style statements about "biggest ever" or "record-breaking" with no specific detail
+- Pre-tournament announcements about songs, ceremonies, or events that already happened days ago
+- Generic news, junk social media captions, non-English content, boring previews
 
 For each picked story, return ONLY this JSON format, nothing else:
 [
-  {{"index": <original index number>, "icon": "<single emoji>", "headline": "<punchy 8 word headline>", "summary": "<1-2 sentences, insightful and specific, no filler>"}},
+  {{"index": <original index number>, "icon": "<single emoji>", "headline": "<punchy 8 word headline>", "summary": "<1-2 sentences, specific and surprising, no filler>"}},
   ...
 ]
 
@@ -108,13 +118,12 @@ Return valid JSON array only. No preamble, no markdown backticks."""
 
         message = llm_client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=600,
+            max_tokens=min(150 * max_results, 1500),
             messages=[{"role": "user", "content": prompt}]
         )
 
         import json
         response_text = message.content[0].text.strip()
-        # Strip markdown code blocks if present
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]
             if response_text.startswith("json"):
@@ -163,8 +172,9 @@ def get_buzz_stories_uncached(max_results: int = 5) -> list:
             response = client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=3,
-                include_answer=False
+                max_results=4,
+                include_answer=False,
+                days=2
             )
             raw_results.extend(response.get("results", []))
 
@@ -185,21 +195,33 @@ def get_buzz_stories_uncached(max_results: int = 5) -> list:
         )
 
         prompt = f"""You are a football buzz editor. From the raw search results below, 
-pick the {max_results} most interesting, surprising, or fun stories about the 2026 World Cup.
+        pick the {max_results} most interesting, surprising, or fun stories about the 2026 World Cup.
+        
+STRONGLY PREFER:
+- Specific facts about a venue, stadium, city, or weather tied to a recent or upcoming match
+- A surprising stat, record, or moment tied to a specific team or player, dated recently
+- Fan culture, atmosphere, or off-pitch moments from the last day or two
+- Anything with a specific number, name, place, or date that feels like genuine trivia
 
-Ignore: generic news, junk social media captions, non-English content, boring previews.
-Keep: fun facts, viral moments, unusual stories, quirky player/team news, venue facts, cultural moments.
+ STRONGLY AVOID:
+- Match results, scores, or summaries of who won/lost/drew — this is covered elsewhere
+- Anything starting with team names followed by a score or "defeated", "won", "drew"
+- Generic statements about "48 teams", "104 matches", tournament format/history that apply to the whole event with no specific team, player, venue, or date attached
+- Vague marketing-style statements about "biggest ever" or "record-breaking" with no specific detail
+- Pre-tournament announcements about songs, ceremonies, or events that already happened days ago
+- Generic news, junk social media captions, non-English content, boring previews
 
-For each picked story, return ONLY this JSON format, nothing else:
-[
-  {{"index": <original index number>, "icon": "<single emoji>", "headline": "<punchy 8 word headline>", "summary": "<1-2 sentences, insightful and specific, no filler>"}},
-  ...
-]
+KEEP: fun facts, viral moments, unusual stories, quirky player/team news, venue facts, cultural moments, weather/altitude trivia, fan culture, controversies unrelated to match scores — all tied to something specific and recent.
+        For each picked story, return ONLY this JSON format, nothing else:
+        [
+          {{"index": <original index number>, "icon": "<single emoji>", "headline": "<punchy 8 word headline>", "summary": "<1-2 sentences, insightful and specific, no filler>"}},
+          ...
+        ]
 
-Raw results:
-{raw_text}
+        Raw results:
+        {raw_text}
 
-Return valid JSON array only. No preamble, no markdown backticks."""
+        Return valid JSON array only. No preamble, no markdown backticks."""
 
         message = llm_client.messages.create(
             model="claude-haiku-4-5-20251001",
