@@ -66,8 +66,36 @@ finished = recent_results
 
 st.subheader("Recent Results")
 
-if finished:
-    for match in finished[-8:]:
+date_filter = st.radio(
+    "Show results from",
+    ["Today", "Yesterday", "Last 3 days", "All"],
+    horizontal=True,
+    index=0
+)
+
+from datetime import datetime, timezone, timedelta as td
+aest = timezone(td(hours=10))
+now_aest = datetime.now(aest)
+
+def match_aest_date(match):
+    utc_dt = datetime.strptime(match["utcDate"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone(aest).date()
+
+today_date = now_aest.date()
+yesterday_date = today_date - td(days=1)
+three_days_ago = today_date - td(days=3)
+
+if date_filter == "Today":
+    filtered = [m for m in finished if match_aest_date(m) == today_date]
+elif date_filter == "Yesterday":
+    filtered = [m for m in finished if match_aest_date(m) == yesterday_date]
+elif date_filter == "Last 3 days":
+    filtered = [m for m in finished if match_aest_date(m) >= three_days_ago]
+else:
+    filtered = finished
+
+if filtered:
+    for match in filtered:
         home = match["homeTeam"]["name"]
         away = match["awayTeam"]["name"]
         score = match["score"]["fullTime"]
@@ -109,7 +137,7 @@ if finished:
 
         st.markdown("<div style='border-bottom:0.5px solid #eee;margin:4px 0;'></div>", unsafe_allow_html=True)
 else:
-    st.info("No completed matches yet.")
+    st.info(f"No completed matches for: {date_filter}")
 
 # ── Section 1.5: Bracket ──────────────────────────────────────
 st.subheader("Tournament Bracket")
