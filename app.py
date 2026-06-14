@@ -143,7 +143,7 @@ for i, group_df in enumerate(all_groups):
             st.markdown(
                 f"{badge} {row['team']} {get_flag_img(row['team'])} — "
                 f"**{row['points']}pts** "
-                f"(GD: {row['gd']:+d})",
+                f"(GD: {row['gd']:+d}, GF: {int(row['gf'])})",
                 unsafe_allow_html=True
             )
         st.write("")
