@@ -103,3 +103,17 @@ def get_top_scorers(limit: int = 10):
     )
     r.raise_for_status()
     return r.json().get("scorers", [])
+
+def get_group_remaining_fixtures(group_name):
+    """Returns unplayed fixtures for a specific group, e.g. 'Group B'."""
+    all_matches = get_fixtures()
+    remaining = []
+    for m in all_matches:
+        if m.get("status") == "FINISHED":
+            continue
+        if m.get("group") != group_name:
+            continue
+        home = m["homeTeam"]["name"]
+        away = m["awayTeam"]["name"]
+        remaining.append(f"{home} vs {away}")
+    return remaining

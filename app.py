@@ -366,15 +366,23 @@ st.divider()
 
 # ── Section 5: Haiku pundit ───────────────────────────────────
 st.subheader("Haiku Pundit")
-st.caption("Select a team for an AI-powered 3-bullet briefing")
+st.caption("Select a team or group for an AI-powered briefing")
 
-all_teams = sorted(set(
-    row["team"]
-    for group_df in all_groups
-    for _, row in group_df.iterrows()
-))
+pundit_mode = st.radio("Analyse by", ["Team", "Group"], horizontal=True)
 
-selected_team = st.selectbox("Choose a team", ["— select —"] + all_teams)
+selected_team = "— select —"
+selected_group = "— select —"
+
+if pundit_mode == "Team":
+    all_teams = sorted(set(
+        row["team"]
+        for group_df in all_groups
+        for _, row in group_df.iterrows()
+    ))
+    selected_team = st.selectbox("Choose a team", ["— select —"] + all_teams)
+else:
+    all_group_names = [g["group"].iloc[0] for g in all_groups if not g.empty]
+    selected_group = st.selectbox("Choose a group", ["— select —"] + sorted(all_group_names))
 
 if selected_team and selected_team != "— select —":
     team_group = next(
@@ -412,6 +420,28 @@ if selected_team and selected_team != "— select —":
                 )
 
             briefing = get_pundit_briefing(selected_team, context, match_history)
+            st.markdown(briefing)
+if pundit_mode == "Group" and selected_group and selected_group != "— select —":
+    if st.button(f"Brief me on {selected_group} ↗"):
+        from components.haiku_pundit import get_group_briefing
+        from data.api_client import get_group_remaining_fixtures
+        with st.spinner("Consulting the Haiku Pundit..."):
+            group_df = next(
+                (g for g in all_groups if g["group"].iloc[0] == selected_group), None
+            )
+            teams_data = ""
+            if group_df is not None:
+                for _, row in group_df.iterrows():
+                    teams_data += (
+                        f"- {row['team']}: Position {int(row['position'])}, "
+                        f"{int(row['points'])}pts, Played {int(row['played'])}, "
+                        f"GD {row['gd']:+d}, GF {int(row['gf'])}\n"
+                    )
+
+            remaining = get_group_remaining_fixtures(selected_group)
+            remaining_text = "\n".join(f"- {r}" for r in remaining)
+
+            briefing = get_group_briefing(selected_group, teams_data, remaining_text)
             st.markdown(briefing)
 
 # ── Section 6: Buzz ───────────────────────────────────────────

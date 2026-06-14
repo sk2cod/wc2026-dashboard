@@ -88,3 +88,30 @@ def get_betting_insight(home: str, away: str, home_prob: float,
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text
+
+@st.cache_data(ttl=3600*6, show_spinner=False)
+def get_group_briefing(group_name: str, teams_data: str, remaining_fixtures: str) -> str:
+    prompt = f"""You are a sharp football analyst covering the 2026 World Cup.
+Analyse the current situation in {group_name} and give exactly 4 bullet points.
+No filler, no preamble.
+
+Current standings:
+{teams_data}
+
+Remaining fixtures in this group:
+{remaining_fixtures if remaining_fixtures else "All matches completed."}
+
+Return exactly this format:
+✅ **Through:** [which team(s) are virtually safe and why]
+🎯 **Still alive:** [which teams are still fighting and what they need]
+⚠️ **In trouble:** [which team(s) face elimination and what must happen]
+🔥 **Watch for:** [the key remaining fixture that will decide this group]
+
+4 bullets only. Be specific with numbers and scenarios."""
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return message.content[0].text
