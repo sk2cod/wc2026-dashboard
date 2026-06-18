@@ -103,7 +103,7 @@ if filtered:
         away_score = score["away"] or 0
         group = match.get("group", "").replace(
             "GROUP_", "Grp ").replace("_", " ").title()
-        match_date = match["utcDate"][:10]
+        match_date = match_aest_date(match).strftime("%Y-%m-%d")
         match_id = match["id"]
 
         if home_score > away_score:
