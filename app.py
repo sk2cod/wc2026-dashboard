@@ -3,7 +3,7 @@ from data.api_client import get_standings, get_todays_and_tomorrows_matches, get
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 from components.haiku_pundit import get_match_narrative
-from data.buzz_client import get_buzz_stories
+from components.haiku_pundit import get_match_narrative, get_daily_storylines
 from data.flags import get_flag, get_flag_img
 
 
@@ -31,9 +31,6 @@ def load_odds():
     raw = get_wc_odds()
     return parse_implied_probability(raw)
 
-@st.cache_data(ttl=3600*12)
-def load_buzz(n=5):
-    return get_buzz_stories(max_results=n)
 
 @st.cache_data(ttl=600)
 def load_scorers():
@@ -472,52 +469,53 @@ if pundit_mode == "Group" and selected_group and selected_group != "— select �
             briefing = get_group_briefing(selected_group, teams_data, remaining_text)
             st.markdown(briefing)
 
-# ── Section 6: Buzz ───────────────────────────────────────────
+
+# ── Section 6: Today's Storylines ────────────────────────────
 st.divider()
-st.subheader("🔥 Buzz")
-st.caption("Trending stories, fun facts and off-the-pitch drama")
+st.subheader("📋 Today's Storylines")
+st.caption("AI-generated briefing based on today's fixtures and live standings")
 
-if "buzz_count" not in st.session_state:
-    st.session_state.buzz_count = 5
-if "buzz_stories" not in st.session_state:
-    st.session_state.buzz_stories = None
+from datetime import datetime, timezone, timedelta
+aest = timezone(timedelta(hours=10))
+today_str = datetime.now(aest).strftime("%A %d %B %Y")
 
+if todays_matches:
+    # Build fixtures context
+    fixtures_data = ""
+    for m in todays_matches:
+        if m["status"] == "FINISHED":
+            continue
+        home = m["homeTeam"]["name"]
+        away = m["awayTeam"]["name"]
+        group = m.get("group", "").replace("GROUP_", "Group ").replace("_", " ").title()
+        kickoff, _, _ = utc_to_aest(m["utcDate"])
+        fixtures_data += f"- {group}: {home} vs {away} at {kickoff}\n"
 
-if st.session_state.buzz_stories is None:
-    st.session_state.buzz_stories = get_buzz_stories(5)
-buzz_stories = st.session_state.buzz_stories
+    # Build standings context for relevant groups
+    relevant_groups = set(
+        m.get("group", "").replace("GROUP_", "Group ").replace("_", " ").title()
+        for m in todays_matches
+        if m["status"] != "FINISHED"
+    )
 
-for i, story in enumerate(buzz_stories):
+    standings_data = ""
+    for group_df in all_groups:
+        group_name = group_df["group"].iloc[0]
+        if group_name not in relevant_groups:
+            continue
+        standings_data += f"\n{group_name}:\n"
+        for _, row in group_df.iterrows():
+            standings_data += (
+                f"  {int(row['position'])}. {row['team']} — "
+                f"{int(row['points'])}pts, GD {row['gd']:+d}, "
+                f"GF {int(row['gf'])}, Played {int(row['played'])}\n"
+            )
 
-
-    read_more = f"· <a href='{story['url']}' target='_blank'>Read more</a>" if story['url'] else ""
-    with st.container():
-        st.markdown(
-            f"<div style='padding:8px 0;border-bottom:0.5px solid #eee;'>"
-            f"<div style='display:flex;align-items:flex-start;gap:10px;'>"
-            f"<span style='font-size:20px;'>{story['icon']}</span>"
-            f"<div style='flex:1;'>"
-            f"<div style='font-size:14px;font-weight:600;color:var(--color-text-primary);'>{story['title']}</div>"
-            f"<div style='font-size:13px;color:var(--color-text-secondary);margin-top:2px;'>{story['content']}</div>"
-            f"<div style='font-size:11px;color:#888;margin-top:4px;'>"
-            f"via {story['source']} "
-            f"{read_more}"
-            f"</div>"
-            f"</div>"
-            f"</div></div>",
-            unsafe_allow_html=True
-        )
-
-
-
-if st.button("Load 5 more ↓"):
-    with st.spinner("Fetching more stories..."):
-        existing_urls = {s["url"] for s in st.session_state.buzz_stories}
-        from data.buzz_client import get_buzz_stories_uncached
-        new_stories = get_buzz_stories_uncached(5)
-        unique_new = [s for s in new_stories if s["url"] not in existing_urls]
-        if unique_new:
-            st.session_state.buzz_stories = st.session_state.buzz_stories + unique_new
-        else:
-            st.warning("No new stories found — check back later.")
-    st.rerun()
+    if fixtures_data:
+        with st.spinner("Generating today's storylines..."):
+            storylines = get_daily_storylines(fixtures_data, standings_data, today_str)
+        st.markdown(storylines)
+    else:
+        st.info("All matches today are finished — check back tomorrow for new storylines.")
+else:
+    st.info("No matches scheduled today.")

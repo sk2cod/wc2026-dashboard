@@ -115,3 +115,31 @@ Return exactly this format:
         messages=[{"role": "user", "content": prompt}]
     )
     return message.content[0].text
+
+
+@st.cache_data(ttl=3600*6, show_spinner=False)
+def get_daily_storylines(fixtures_data: str, standings_data: str, today_str: str) -> str:
+    prompt = f"""You are a sharp football analyst covering the 2026 World Cup.
+Today is {today_str}. Based on today's fixtures and current group standings, 
+give exactly 4 punchy storylines — things worth watching today.
+
+Today's fixtures:
+{fixtures_data}
+
+Relevant group standings:
+{standings_data}
+
+Return exactly this format:
+🔥 [storyline 1 — who needs what result and why it matters]
+⚡ [storyline 2 — interesting tactical or form-based angle]
+👀 [storyline 3 — group drama, wildcard implications, or upset potential]
+🎯 [storyline 4 — one team or player to watch closely today]
+
+4 bullets only. Be specific with team names, points, and scenarios. No filler."""
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return message.content[0].text
