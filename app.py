@@ -1,10 +1,19 @@
 import streamlit as st
-from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results, get_top_scorers
+from data.api_client import get_standings, get_todays_and_tomorrows_matches, get_recent_results, get_top_scorers, get_fixtures
 from data.wildcard import calculate_wildcard
 from data.odds_client import get_wc_odds, parse_implied_probability
 from components.haiku_pundit import get_match_narrative
 from components.haiku_pundit import get_match_narrative, get_daily_storylines
 from data.flags import get_flag, get_flag_img
+from datetime import datetime, timezone, timedelta
+
+aest = timezone(timedelta(hours=10))
+
+def utc_to_aest(utc_str):
+    utc_dt = datetime.strptime(utc_str, "%Y-%m-%dT%H:%M:%SZ")
+    utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    aest_dt = utc_dt.astimezone(aest)
+    return aest_dt.strftime("%d %b %I:%M %p AEST"), aest_dt.strftime("%Y-%m-%d"), aest_dt.strftime("%A %d %B")
 
 
 st.set_page_config(
@@ -26,6 +35,10 @@ def load_fixtures():
 def load_results():
     return get_recent_results()
 
+@st.cache_data(ttl=600)
+def load_all_fixtures():
+    return get_fixtures()
+
 @st.cache_data(ttl=1800)
 def load_odds():
     raw = get_wc_odds()
@@ -40,6 +53,7 @@ def load_scorers():
 standings = load_standings()
 all_groups, wildcard_df = calculate_wildcard(standings)
 todays_matches = load_fixtures()
+all_fixtures = load_all_fixtures()
 recent_results = load_results()
 odds = load_odds()
 top_scorers = load_scorers()
@@ -161,14 +175,63 @@ for i, group_df in enumerate(all_groups):
     col = cols[i % 4]
     with col:
         raw = group_df["group"].iloc[0]
+        group_key = "GROUP_" + raw.split()[-1]
         group_name = raw.replace("GROUP_", "Group ").replace("_", " ").title()
-        st.markdown(f"**{group_name}**")
+        matches_played = int(group_df["played"].sum() // 2)
+        st.markdown(f"**{group_name}** (MP-{matches_played})")
         for _, row in group_df.iterrows():
             badge = status_badge(row["position"], row["points"], row["played"])
             st.markdown(
                 f"{badge} {row['team']} {get_flag_img(row['team'])} — "
                 f"**{row['points']}pts** "
-                f"(GD: {row['gd']:+d}, GF: {int(row['gf'])})",
+                f"(GD: {row['gd']:+d}, GF: {int(row['gf'])}, MP-{int(row['played'])})",
+                unsafe_allow_html=True
+            )
+
+        played = sorted(
+            (m for m in all_fixtures if m.get("group") == group_key and m.get("status") == "FINISHED"),
+            key=lambda m: m.get("utcDate", "")
+        )
+        if played:
+            lines = ""
+            for m in played:
+                home = m["homeTeam"]["name"]
+                away = m["awayTeam"]["name"]
+                score = m["score"]["fullTime"]
+                home_goals, away_goals = score["home"], score["away"]
+                if home_goals > away_goals:
+                    result = f"{home} win {home_goals}-{away_goals} 🏆"
+                elif away_goals > home_goals:
+                    result = f"{away} win {away_goals}-{home_goals} 🏆"
+                else:
+                    result = f"Draw {home_goals}-{away_goals} 🤝"
+                lines += (
+                    f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
+                    f"{home} vs {away} - {result}</div>"
+                )
+            st.markdown(
+                "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
+                "margin-top:6px;'>Results</div>" + lines,
+                unsafe_allow_html=True
+            )
+
+        upcoming = sorted(
+            (m for m in all_fixtures if m.get("group") == group_key and m.get("status") != "FINISHED"),
+            key=lambda m: m.get("utcDate", "")
+        )
+        if upcoming:
+            lines = ""
+            for m in upcoming:
+                home = m["homeTeam"]["name"]
+                away = m["awayTeam"]["name"]
+                kickoff, _, _ = utc_to_aest(m["utcDate"])
+                lines += (
+                    f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
+                    f"{home} vs {away} &nbsp;·&nbsp; {kickoff}</div>"
+                )
+            st.markdown(
+                "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
+                "margin-top:6px;'>Upcoming</div>" + lines,
                 unsafe_allow_html=True
             )
         st.write("")
@@ -262,15 +325,6 @@ else:
 st.divider()
 
 # ── Section 4: Today's matches + hype bar ────────────────────
-from datetime import datetime, timezone, timedelta
-
-aest = timezone(timedelta(hours=10))
-
-def utc_to_aest(utc_str):
-    utc_dt = datetime.strptime(utc_str, "%Y-%m-%dT%H:%M:%SZ")
-    utc_dt = utc_dt.replace(tzinfo=timezone.utc)
-    aest_dt = utc_dt.astimezone(aest)
-    return aest_dt.strftime("%d %b %I:%M %p AEST"), aest_dt.strftime("%Y-%m-%d"), aest_dt.strftime("%A %d %B")
 
 st.subheader("Today & Tomorrow's Matches")
 
