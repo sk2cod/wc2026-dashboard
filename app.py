@@ -154,7 +154,7 @@ else:
 st.subheader("Tournament Bracket")
 st.caption("Live group standings feeding into the knockout path")
 from components.bracket import render_bracket
-render_bracket(all_groups, wildcard_df)
+render_bracket(all_groups, wildcard_df, all_fixtures)
 
 st.divider()
 

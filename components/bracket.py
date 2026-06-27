@@ -1,8 +1,7 @@
 import streamlit as st
 
 
-
-def render_bracket(all_groups, wildcard_df):
+def render_bracket(all_groups, wildcard_df, ko_fixtures=None):
     """Renders the 2026 World Cup wallchart bracket."""
 
     # Build team lookup by group
@@ -73,13 +72,62 @@ def render_bracket(all_groups, wildcard_df):
         """
         return html
 
-    def ko_box(label="TBD", sublabel=""):
-        return f"""
-        <div class="ko-box">
-            <div class="ko-team">{label}</div>
-            {f'<div class="ko-sub">{sublabel}</div>' if sublabel else ''}
-        </div>
-        """
+    # ── Knockout fixtures ──────────────────────────────────────────
+    ko_by_stage = {}
+    if ko_fixtures:
+        for stage in ("LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"):
+            ko_by_stage[stage] = [m for m in ko_fixtures if m.get("stage") == stage]
+
+    def _split(stage, left_n, right_n):
+        matches = ko_by_stage.get(stage, [])
+        left = matches[:left_n]
+        right = matches[left_n: left_n + right_n]
+        left += [None] * (left_n - len(left))
+        right += [None] * (right_n - len(right))
+        return left, right
+
+    def _name(team_dict):
+        return (team_dict or {}).get("name") or "TBD"
+
+    def _short(name, n=11):
+        return name if len(name) <= n else name[:n] + "…"
+
+    def ko_match_box(match=None):
+        if match is None:
+            return '<div class="ko-box"><div class="ko-team tbd">TBD</div><div class="ko-vs">vs</div><div class="ko-team tbd">TBD</div></div>'
+        home = _name(match.get("homeTeam"))
+        away = _name(match.get("awayTeam"))
+        status = match.get("status", "")
+        score = ((match.get("score") or {}).get("fullTime") or {})
+        hs = score.get("home")
+        as_ = score.get("away")
+
+        if status == "FINISHED" and hs is not None and as_ is not None:
+            hw = "winner" if hs > as_ else ("loser" if hs < as_ else "")
+            aw = "winner" if as_ > hs else ("loser" if as_ < hs else "")
+            return f"""<div class="ko-box finished">
+                <div class="ko-team {hw}">{_short(home)}</div>
+                <div class="ko-score">{hs}–{as_}</div>
+                <div class="ko-team {aw}">{_short(away)}</div>
+            </div>"""
+        elif status in ("IN_PLAY", "PAUSED", "HALFTIME"):
+            hs = hs or 0
+            as_ = as_ or 0
+            return f"""<div class="ko-box live">
+                <div class="ko-team">{_short(home)}</div>
+                <div class="ko-score live-score">🔴 {hs}–{as_}</div>
+                <div class="ko-team">{_short(away)}</div>
+            </div>"""
+        else:
+            hd = _short(home) if home != "TBD" else "TBD"
+            ad = _short(away) if away != "TBD" else "TBD"
+            tbd_h = " tbd" if home == "TBD" else ""
+            tbd_a = " tbd" if away == "TBD" else ""
+            return f"""<div class="ko-box scheduled">
+                <div class="ko-team{tbd_h}">{hd}</div>
+                <div class="ko-vs">vs</div>
+                <div class="ko-team{tbd_a}">{ad}</div>
+            </div>"""
 
     def stage_col(title, boxes, extra_class=""):
         content = "".join(boxes)
@@ -97,15 +145,37 @@ def render_bracket(all_groups, wildcard_df):
     left_group_html = "".join(group_card(g) for g in left_groups)
     right_group_html = "".join(group_card(g) for g in right_groups)
 
-    r32_left = "".join(ko_box("R32") for _ in range(8))
-    r32_right = "".join(ko_box("R32") for _ in range(8))
-    r16_left = "".join(ko_box("R16") for _ in range(4))
-    r16_right = "".join(ko_box("R16") for _ in range(4))
-    qf_left = "".join(ko_box("QF") for _ in range(2))
-    qf_right = "".join(ko_box("QF") for _ in range(2))
-    sf_left = ko_box("SF")
-    sf_right = ko_box("SF")
-    final = ko_box("🏆", "Final")
+    r32_l, r32_r = _split("LAST_32", 8, 8)
+    r16_l, r16_r = _split("LAST_16", 4, 4)
+    qf_l, qf_r = _split("QUARTER_FINALS", 2, 2)
+    sf_l, sf_r = _split("SEMI_FINALS", 1, 1)
+    final_list, _ = _split("FINAL", 1, 0)
+    final_match = final_list[0]
+
+    r32_left = "".join(ko_match_box(m) for m in r32_l)
+    r32_right = "".join(ko_match_box(m) for m in r32_r)
+    r16_left = "".join(ko_match_box(m) for m in r16_l)
+    r16_right = "".join(ko_match_box(m) for m in r16_r)
+    qf_left = "".join(ko_match_box(m) for m in qf_l)
+    qf_right = "".join(ko_match_box(m) for m in qf_r)
+    sf_left = ko_match_box(sf_l[0])
+    sf_right = ko_match_box(sf_r[0])
+
+    # Final box content
+    if final_match and final_match.get("status") == "FINISHED":
+        fs = ((final_match.get("score") or {}).get("fullTime") or {})
+        fhs, fas = fs.get("home", "-"), fs.get("away", "-")
+        fhw = "winner" if (isinstance(fhs, int) and isinstance(fas, int) and fhs > fas) else ""
+        faw = "winner" if (isinstance(fhs, int) and isinstance(fas, int) and fas > fhs) else ""
+        fh = _short(_name(final_match.get("homeTeam")), 13)
+        fa = _short(_name(final_match.get("awayTeam")), 13)
+        final_inner = f'<div class="ko-team {fhw}">{fh}</div><div class="ko-score">{fhs}–{fas}</div><div class="ko-team {faw}">{fa}</div>'
+    elif final_match and final_match.get("homeTeam", {}) and _name(final_match.get("homeTeam")) != "TBD":
+        fh = _short(_name(final_match.get("homeTeam")), 13)
+        fa = _short(_name(final_match.get("awayTeam")), 13)
+        final_inner = f'<div class="ko-team">{fh}</div><div class="ko-vs">vs</div><div class="ko-team">{fa}</div>'
+    else:
+        final_inner = '<div class="ko-team" style="font-size:22px">🏆</div><div class="ko-sub">19 Jul</div>'
 
     html = f"""
     <style>
@@ -197,14 +267,53 @@ def render_bracket(all_groups, wildcard_df):
             background: #f0f0f0;
             border: 1px solid #ddd;
             border-radius: 6px;
-            padding: 6px 8px;
+            padding: 5px 7px;
             text-align: center;
             margin-bottom: 2px;
         }}
+        .ko-box.finished {{
+            background: #f5f5f5;
+            border-color: #bbb;
+        }}
+        .ko-box.live {{
+            background: #fff5f5;
+            border-color: #E24B4A;
+        }}
+        .ko-box.scheduled {{
+            background: #f8f8f8;
+            border-color: #ddd;
+        }}
         .ko-team {{
-            font-size: 11px;
-            color: #999;
+            font-size: 10px;
+            color: #555;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        .ko-team.tbd {{
+            color: #bbb;
             font-style: italic;
+        }}
+        .ko-team.winner {{
+            font-weight: 700;
+            color: #1D9E75;
+        }}
+        .ko-team.loser {{
+            color: #aaa;
+        }}
+        .ko-score {{
+            font-size: 11px;
+            font-weight: 700;
+            color: #333;
+            margin: 2px 0;
+        }}
+        .ko-score.live-score {{
+            color: #E24B4A;
+        }}
+        .ko-vs {{
+            font-size: 9px;
+            color: #bbb;
+            margin: 1px 0;
         }}
         .ko-sub {{
             font-size: 9px;
@@ -262,8 +371,7 @@ def render_bracket(all_groups, wildcard_df):
         <div class="final-col">
             <div class="stage-title">Final</div>
             <div class="final-box">
-                <div class="ko-team">🏆</div>
-                <div class="ko-sub">19 Jul</div>
+                {final_inner}
             </div>
         </div>
 
