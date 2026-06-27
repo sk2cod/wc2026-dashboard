@@ -102,6 +102,18 @@ def render_bracket(all_groups, wildcard_df, ko_fixtures=None):
         hs = score.get("home")
         as_ = score.get("away")
 
+        # Format match date in AEST for TBD team slots
+        date_label = "TBD"
+        utc_date = match.get("utcDate", "")
+        if utc_date:
+            try:
+                from datetime import datetime, timezone, timedelta
+                dt = datetime.strptime(utc_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                aest = dt.astimezone(timezone(timedelta(hours=10)))
+                date_label = aest.strftime("%b ") + str(aest.day)
+            except Exception:
+                pass
+
         if status == "FINISHED" and hs is not None and as_ is not None:
             hw = "winner" if hs > as_ else ("loser" if hs < as_ else "")
             aw = "winner" if as_ > hs else ("loser" if as_ < hs else "")
@@ -119,8 +131,8 @@ def render_bracket(all_groups, wildcard_df, ko_fixtures=None):
                 <div class="ko-team">{_short(away)}</div>
             </div>"""
         else:
-            hd = _short(home) if home != "TBD" else "TBD"
-            ad = _short(away) if away != "TBD" else "TBD"
+            hd = _short(home) if home != "TBD" else date_label
+            ad = _short(away) if away != "TBD" else date_label
             tbd_h = " tbd" if home == "TBD" else ""
             tbd_a = " tbd" if away == "TBD" else ""
             return f"""<div class="ko-box scheduled">
