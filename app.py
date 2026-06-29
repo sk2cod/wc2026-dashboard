@@ -362,7 +362,7 @@ if todays_matches:
                 away = match["awayTeam"]["name"]
                 kickoff, _, _ = utc_to_aest(match["utcDate"])
                 status = match["status"]
-                group = match.get("group", "").replace(
+                group = (match.get("group") or "").replace(
                     "GROUP_", "Grp ").replace("_", " ").title()
 
                 odds_match = next(
