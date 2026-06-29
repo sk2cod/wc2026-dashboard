@@ -112,7 +112,7 @@ if filtered:
         score = match["score"]["fullTime"]
         home_score = score["home"] or 0
         away_score = score["away"] or 0
-        group = match.get("group", "").replace(
+        group = (match.get("group") or "").replace(
             "GROUP_", "Grp ").replace("_", " ").title()
         match_date = match_aest_date(match).strftime("%Y-%m-%d")
         match_id = match["id"]
