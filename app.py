@@ -541,13 +541,13 @@ if todays_matches:
             continue
         home = m["homeTeam"]["name"]
         away = m["awayTeam"]["name"]
-        group = m.get("group", "").replace("GROUP_", "Group ").replace("_", " ").title()
+        group = (m.get("group") or "").replace("GROUP_", "Group ").replace("_", " ").title()
         kickoff, _, _ = utc_to_aest(m["utcDate"])
         fixtures_data += f"- {group}: {home} vs {away} at {kickoff}\n"
 
     # Build standings context for relevant groups
     relevant_groups = set(
-        m.get("group", "").replace("GROUP_", "Group ").replace("_", " ").title()
+        (m.get("group") or "").replace("GROUP_", "Group ").replace("_", " ").title()
         for m in todays_matches
         if m["status"] != "FINISHED"
     )
