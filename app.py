@@ -536,38 +536,43 @@ today_str = datetime.now(aest).strftime("%A %d %B %Y")
 if todays_matches:
     # Build fixtures context
     fixtures_data = ""
+    is_knockout = False
     for m in todays_matches:
         if m["status"] == "FINISHED":
             continue
         home = m["homeTeam"]["name"]
         away = m["awayTeam"]["name"]
         group = (m.get("group") or "").replace("GROUP_", "Group ").replace("_", " ").title()
+        stage = (m.get("stage") or "").replace("_", " ").title()
         kickoff, _, _ = utc_to_aest(m["utcDate"])
-        fixtures_data += f"- {group}: {home} vs {away} at {kickoff}\n"
+        label = group if group else stage
+        if not group:
+            is_knockout = True
+        fixtures_data += f"- {label}: {home} vs {away} at {kickoff}\n"
 
-    # Build standings context for relevant groups
-    relevant_groups = set(
-        (m.get("group") or "").replace("GROUP_", "Group ").replace("_", " ").title()
-        for m in todays_matches
-        if m["status"] != "FINISHED"
-    )
-
+    # Build standings context only for group stage matches
     standings_data = ""
-    for group_df in all_groups:
-        group_name = group_df["group"].iloc[0]
-        if group_name not in relevant_groups:
-            continue
-        standings_data += f"\n{group_name}:\n"
-        for _, row in group_df.iterrows():
-            standings_data += (
-                f"  {int(row['position'])}. {row['team']} — "
-                f"{int(row['points'])}pts, GD {row['gd']:+d}, "
-                f"GF {int(row['gf'])}, Played {int(row['played'])}\n"
-            )
+    if not is_knockout:
+        relevant_groups = set(
+            (m.get("group") or "").replace("GROUP_", "Group ").replace("_", " ").title()
+            for m in todays_matches
+            if m["status"] != "FINISHED" and m.get("group")
+        )
+        for group_df in all_groups:
+            group_name = group_df["group"].iloc[0]
+            if group_name not in relevant_groups:
+                continue
+            standings_data += f"\n{group_name}:\n"
+            for _, row in group_df.iterrows():
+                standings_data += (
+                    f"  {int(row['position'])}. {row['team']} — "
+                    f"{int(row['points'])}pts, GD {row['gd']:+d}, "
+                    f"GF {int(row['gf'])}, Played {int(row['played'])}\n"
+                )
 
     if fixtures_data:
         with st.spinner("Generating today's storylines..."):
-            storylines = get_daily_storylines(fixtures_data, standings_data, today_str)
+            storylines = get_daily_storylines(fixtures_data, standings_data, today_str, is_knockout)
         st.markdown(storylines)
     else:
         st.info("All matches today are finished — check back tomorrow for new storylines.")

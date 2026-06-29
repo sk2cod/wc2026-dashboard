@@ -118,24 +118,36 @@ Return exactly this format:
 
 
 @st.cache_data(ttl=3600*6, show_spinner=False)
-def get_daily_storylines(fixtures_data: str, standings_data: str, today_str: str) -> str:
+def get_daily_storylines(fixtures_data: str, standings_data: str, today_str: str, is_knockout: bool = False) -> str:
+    if is_knockout:
+        context_section = "This is the knockout stage — every match is win-or-go-home. No draws, no second chances."
+        storyline_hints = (
+            "🔥 [storyline 1 — the biggest clash today and what's at stake for both nations]\n"
+            "⚡ [storyline 2 — tactical or form-based angle — who has the edge and why]\n"
+            "👀 [storyline 3 — upset potential or underdog story worth watching]\n"
+            "🎯 [storyline 4 — one player who could be the difference maker today]"
+        )
+    else:
+        context_section = f"Relevant group standings:\n{standings_data}" if standings_data else "Group stage in progress."
+        storyline_hints = (
+            "🔥 [storyline 1 — who needs what result and why it matters]\n"
+            "⚡ [storyline 2 — interesting tactical or form-based angle]\n"
+            "👀 [storyline 3 — group drama, wildcard implications, or upset potential]\n"
+            "🎯 [storyline 4 — one team or player to watch closely today]"
+        )
+
     prompt = f"""You are a sharp football analyst covering the 2026 World Cup.
-Today is {today_str}. Based on today's fixtures and current group standings, 
-give exactly 4 punchy storylines — things worth watching today.
+Today is {today_str}. Give exactly 4 punchy storylines — things worth watching today.
 
 Today's fixtures:
 {fixtures_data}
 
-Relevant group standings:
-{standings_data}
+{context_section}
 
 Return exactly this format:
-🔥 [storyline 1 — who needs what result and why it matters]
-⚡ [storyline 2 — interesting tactical or form-based angle]
-👀 [storyline 3 — group drama, wildcard implications, or upset potential]
-🎯 [storyline 4 — one team or player to watch closely today]
+{storyline_hints}
 
-4 bullets only. Be specific with team names, points, and scenarios. No filler."""
+4 bullets only. Be specific with team names and scenarios. No filler."""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
