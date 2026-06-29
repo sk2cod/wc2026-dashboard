@@ -158,7 +158,145 @@ render_bracket(all_groups, wildcard_df, all_fixtures)
 
 st.divider()
 
-# ── Section 2: Groups + Wildcard ──────────────────────────────
+# ── Section 2: Today's matches + hype bar ────────────────────
+st.subheader("Today & Tomorrow's Matches")
+
+if todays_matches:
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    date_labels = {}
+    for match in todays_matches:
+        _, date_key, date_label = utc_to_aest(match["utcDate"])
+        grouped[date_key].append(match)
+        date_labels[date_key] = date_label
+
+    sorted_dates = sorted(grouped.keys())[:2]
+
+    if len(sorted_dates) == 1:
+        cols = [st.container()]
+        date_cols = {sorted_dates[0]: cols[0]}
+    else:
+        col1, col2 = st.columns(2)
+        date_cols = {
+            sorted_dates[0]: col1,
+            sorted_dates[1]: col2
+        }
+
+    for date_key in sorted_dates:
+        matches = grouped[date_key]
+        container = date_cols[date_key]
+        with container:
+            st.markdown(f"**{date_labels[date_key]}**")
+            for match in matches:
+                home = match["homeTeam"]["name"]
+                away = match["awayTeam"]["name"]
+                kickoff, _, _ = utc_to_aest(match["utcDate"])
+                status = match["status"]
+                group = (match.get("group") or "").replace(
+                    "GROUP_", "Grp ").replace("_", " ").title()
+
+                odds_match = next(
+                    (o for o in odds
+                     if home in o["home"] or away in o["away"]), None
+                )
+
+                with st.container():
+                    if status == "FINISHED":
+                        score = match["score"]["fullTime"]
+                        st.markdown(
+                            f"**{home}** {score['home']}–"
+                            f"{score['away']} **{away}** ✅"
+                        )
+                    else:
+                        st.markdown(f"**{home}** vs **{away}**")
+                        st.markdown(
+                            f"<div style='font-size:13px;color:#444;margin-bottom:2px;'>"
+                            f"{group} &nbsp;·&nbsp; {kickoff} &nbsp;·&nbsp; {status.replace('_', ' ').title()}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                    if odds_match and status != "FINISHED":
+                        hp = odds_match["home_prob"]
+                        dp = odds_match["draw_prob"]
+                        ap = odds_match["away_prob"]
+                        favorite_prob = max(hp, ap)
+
+                        if favorite_prob > 70:
+                            bar_color = "#E24B4A"
+                            label = "🔴 Hot favorite"
+                        elif favorite_prob > 55:
+                            bar_color = "#EF9F27"
+                            label = "🟠 Likely winner"
+                        else:
+                            bar_color = "#1D9E75"
+                            label = "🟢 Coin flip"
+
+                        st.markdown(
+                            f"<div style='margin:2px 0 8px;'>"
+                            f"<div style='font-size:13px;color:#444;margin-bottom:2px;'>"
+                            f"{home} {hp}% | Draw {dp}% | {away} {ap}% &nbsp;·&nbsp; {label}"
+                            f"</div>"
+                            f"<div style='background:#eee;border-radius:4px;height:6px;width:100%;'>"
+                            f"<div style='background:{bar_color};width:{favorite_prob:.0f}%;height:6px;border-radius:4px;'>"
+                            f"</div></div></div>",
+                            unsafe_allow_html=True
+                        )
+                    if odds_match and status != "FINISHED":
+                        if st.button(f"💡 Match insight", key=f"insight_{match['id']}"):
+                            from components.haiku_pundit import get_betting_insight
+                            from data.api_client import get_team_match_history
+                            with st.spinner("Analysing..."):
+                                home_history = ""
+                                away_history = ""
+                                for m in get_team_match_history(home):
+                                    home_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                                for m in get_team_match_history(away):
+                                    away_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                                insight = get_betting_insight(
+                                    home, away,
+                                    odds_match["home_prob"],
+                                    odds_match["draw_prob"],
+                                    odds_match["away_prob"],
+                                    home_history,
+                                    away_history
+                                )
+                            st.markdown(insight)
+                    st.write("")
+else:
+    st.info("No matches scheduled today or tomorrow.")
+
+st.divider()
+
+# ── Section 3: Top Scorers ────────────────────────────────────
+st.subheader("Top Scorers")
+st.caption("Golden Boot leaderboard — most goals in the tournament")
+
+if top_scorers:
+    for i, s in enumerate(top_scorers):
+        player = s.get("player", {})
+        team = s.get("team", {})
+        goals = s.get("goals", 0)
+        penalties = s.get("penalties", 0)
+        name = player.get("name", "")
+        team_name = team.get("name", "")
+
+        st.markdown(
+            f"<div style='padding:6px 0;border-bottom:0.5px solid #eee;display:flex;align-items:center;gap:12px;'>"
+            f"<span style='font-size:13px;font-weight:600;color:#888;min-width:24px;'>#{i+1}</span>"
+            f"<span style='font-size:14px;font-weight:600;color:var(--color-text-primary);flex:1;'>{name}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:160px;'>{get_flag(team_name)} {team_name}</span>"
+            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:80px;'>⚽ {goals} goal{'s' if goals != 1 else ''}</span>"
+            f"<span style='font-size:12px;color:#888;min-width:80px;'>{'🅿 ' + str(penalties) + ' pen' if penalties else ''}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+else:
+    st.info("No goals scored yet.")
+
+st.divider()
+
+# ── Section 4: Groups + Wildcard ─────────────────────────────
 def status_badge(pos, pts, played):
     if played == 0:
         return "⬜"
@@ -235,293 +373,141 @@ with st.expander("Group Standings", expanded=False):
                 )
             st.write("")
 
-st.divider()
+with st.expander("Wildcard Ladder — Best 8 Third-Place Teams", expanded=False):
+    st.caption("Top 8 of 12 third-place teams advance to Round of 32")
+    if not wildcard_df.empty:
+        rows_html = ""
+        for _, row in wildcard_df.iterrows():
+            rank = int(row["wildcard_rank"])
+            if rank == 9:
+                rows_html += f"""
+                <tr>
+                    <td colspan='5' style='padding:4px 8px;font-size:11px;
+                    color:var(--color-text-tertiary);border-top:1.5px dashed #888;
+                    text-align:center;'>✂️ cut-off — below this does not advance</td>
+                </tr>"""
 
-# ── Section 3: Wildcard ladder ────────────────────────────────
-st.subheader("Wildcard Ladder — Best 8 Third-Place Teams")
-st.caption("Top 8 of 12 third-place teams advance to Round of 32")
+            status_color = "#1D9E75" if row["status"] == "IN" else "#E24B4A"
+            status_text = row["status"]
+            flag = get_flag_img(row["team"])
 
-if not wildcard_df.empty:
-    rows_html = ""
-    for _, row in wildcard_df.iterrows():
-        rank = int(row["wildcard_rank"])
-        if rank == 9:
             rows_html += f"""
             <tr>
-                <td colspan='5' style='padding:4px 8px;font-size:11px;
-                color:var(--color-text-tertiary);border-top:1.5px dashed #888;
-                text-align:center;'>✂️ cut-off — below this does not advance</td>
+                <td style='padding:6px 8px;font-size:13px;font-weight:600;
+                color:var(--color-text-secondary);'>#{rank}</td>
+                <td style='padding:6px 8px;font-size:13px;
+                color:var(--color-text-primary);'>{flag}{row['team']}</td>
+                <td style='padding:6px 8px;font-size:13px;
+                color:var(--color-text-secondary);text-align:center;'>{int(row['points'])}pts</td>
+                <td style='padding:6px 8px;font-size:13px;
+                color:var(--color-text-secondary);text-align:center;'>GD {row['gd']:+d}</td>
+                <td style='padding:6px 8px;font-size:13px;font-weight:600;
+                color:{status_color};text-align:center;'>{status_text}</td>
             </tr>"""
 
-        status_color = "#1D9E75" if row["status"] == "IN" else "#E24B4A"
-        status_text = row["status"]
-        flag = get_flag_img(row["team"])
-
-        rows_html += f"""
-        <tr>
-            <td style='padding:6px 8px;font-size:13px;font-weight:600;
-            color:var(--color-text-secondary);'>#{rank}</td>
-            <td style='padding:6px 8px;font-size:13px;
-            color:var(--color-text-primary);'>{flag}{row['team']}</td>
-            <td style='padding:6px 8px;font-size:13px;
-            color:var(--color-text-secondary);text-align:center;'>{int(row['points'])}pts</td>
-            <td style='padding:6px 8px;font-size:13px;
-            color:var(--color-text-secondary);text-align:center;'>GD {row['gd']:+d}</td>
-            <td style='padding:6px 8px;font-size:13px;font-weight:600;
-            color:{status_color};text-align:center;'>{status_text}</td>
-        </tr>"""
-
-    st.markdown(
-        f"""<table style='width:100%;border-collapse:collapse;'>
-        <thead>
-            <tr style='border-bottom:1px solid var(--color-border-tertiary);'>
-                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
-                text-align:left;font-weight:500;'>#</th>
-                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
-                text-align:left;font-weight:500;'>Team</th>
-                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
-                text-align:center;font-weight:500;'>Pts</th>
-                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
-                text-align:center;font-weight:500;'>GD</th>
-                <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
-                text-align:center;font-weight:500;'>Status</th>
-            </tr>
-        </thead>
-        <tbody>{rows_html}</tbody>
-        </table>""",
-        unsafe_allow_html=True
-    )
-
-st.divider()
-# ── Section 3.5: Top Scorers ──────────────────────────────────
-st.subheader("Top Scorers")
-st.caption("Golden Boot leaderboard — most goals in the tournament")
-
-if top_scorers:
-    for i, s in enumerate(top_scorers):
-        player = s.get("player", {})
-        team = s.get("team", {})
-        goals = s.get("goals", 0)
-        assists = s.get("assists", 0)
-        penalties = s.get("penalties", 0)
-        name = player.get("name", "")
-        team_name = team.get("name", "")
-        nationality = player.get("nationality", "")
-
         st.markdown(
-            f"<div style='padding:6px 0;border-bottom:0.5px solid #eee;display:flex;align-items:center;gap:12px;'>"
-            f"<span style='font-size:13px;font-weight:600;color:#888;min-width:24px;'>#{i+1}</span>"
-            f"<span style='font-size:14px;font-weight:600;color:var(--color-text-primary);flex:1;'>{name}</span>"
-            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:160px;'>{get_flag(team_name)} {team_name}</span>"
-            f"<span style='font-size:13px;color:var(--color-text-secondary);min-width:80px;'>⚽ {goals} goal{'s' if goals != 1 else ''}</span>"
-            f"<span style='font-size:12px;color:#888;min-width:80px;'>{'🅿 ' + str(penalties) + ' pen' if penalties else ''}</span>"
-            f"</div>",
+            f"""<table style='width:100%;border-collapse:collapse;'>
+            <thead>
+                <tr style='border-bottom:1px solid var(--color-border-tertiary);'>
+                    <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                    text-align:left;font-weight:500;'>#</th>
+                    <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                    text-align:left;font-weight:500;'>Team</th>
+                    <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                    text-align:center;font-weight:500;'>Pts</th>
+                    <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                    text-align:center;font-weight:500;'>GD</th>
+                    <th style='padding:6px 8px;font-size:11px;color:var(--color-text-tertiary);
+                    text-align:center;font-weight:500;'>Status</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+            </table>""",
             unsafe_allow_html=True
         )
-else:
-    st.info("No goals scored yet.")
-
-st.divider()
-
-# ── Section 4: Today's matches + hype bar ────────────────────
-
-st.subheader("Today & Tomorrow's Matches")
-
-if todays_matches:
-    # Group matches by date
-    from collections import defaultdict
-    grouped = defaultdict(list)
-    date_labels = {}
-    for match in todays_matches:
-        _, date_key, date_label = utc_to_aest(match["utcDate"])
-        grouped[date_key].append(match)
-        date_labels[date_key] = date_label
-
-    sorted_dates = sorted(grouped.keys())[:2]
-
-    if len(sorted_dates) == 1:
-        # Only one day — single column
-        cols = [st.container()]
-        date_cols = {sorted_dates[0]: cols[0]}
-    else:
-        # Two days — two columns
-        col1, col2 = st.columns(2)
-        date_cols = {
-            sorted_dates[0]: col1,
-            sorted_dates[1]: col2
-        }
-
-    for date_key in sorted_dates:
-        matches = grouped[date_key]
-        container = date_cols[date_key]
-        with container:
-            st.markdown(f"**{date_labels[date_key]}**")
-            for match in matches:
-                home = match["homeTeam"]["name"]
-                away = match["awayTeam"]["name"]
-                kickoff, _, _ = utc_to_aest(match["utcDate"])
-                status = match["status"]
-                group = (match.get("group") or "").replace(
-                    "GROUP_", "Grp ").replace("_", " ").title()
-
-                odds_match = next(
-                    (o for o in odds
-                     if home in o["home"] or away in o["away"]), None
-                )
-
-                with st.container():
-                    # Match title line
-                    if status == "FINISHED":
-                        score = match["score"]["fullTime"]
-                        st.markdown(
-                            f"**{home}** {score['home']}–"
-                            f"{score['away']} **{away}** ✅"
-                        )
-                    else:
-                        st.markdown(f"**{home}** vs **{away}**")
-
-                        # Meta line — group, time, status
-                        st.markdown(
-                            f"<div style='font-size:13px;color:#444;margin-bottom:2px;'>"
-                            f"{group} &nbsp;·&nbsp; {kickoff} &nbsp;·&nbsp; {status.replace('_', ' ').title()}"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
-
-                    # Odds + hype bar line
-                    if odds_match and status != "FINISHED":
-                        hp = odds_match["home_prob"]
-                        dp = odds_match["draw_prob"]
-                        ap = odds_match["away_prob"]
-                        favorite_prob = max(hp, ap)
-
-                        if favorite_prob > 70:
-                            bar_color = "#E24B4A"
-                            label = "🔴 Hot favorite"
-                        elif favorite_prob > 55:
-                            bar_color = "#EF9F27"
-                            label = "🟠 Likely winner"
-                        else:
-                            bar_color = "#1D9E75"
-                            label = "🟢 Coin flip"
-
-                        st.markdown(
-                            f"<div style='margin:2px 0 8px;'>"
-                            f"<div style='font-size:13px;color:#444;margin-bottom:2px;'>"
-                            f"{home} {hp}% | Draw {dp}% | {away} {ap}% &nbsp;·&nbsp; {label}"
-                            f"</div>"
-                            f"<div style='background:#eee;border-radius:4px;height:6px;width:100%;'>"
-                            f"<div style='background:{bar_color};width:{favorite_prob:.0f}%;height:6px;border-radius:4px;'>"
-                            f"</div></div></div>",
-                            unsafe_allow_html=True
-                        )
-                    # Betting insight button
-                    if odds_match and status != "FINISHED":
-                        if st.button(f"💡 Match insight", key=f"insight_{match['id']}"):
-                            from components.haiku_pundit import get_betting_insight
-                            from data.api_client import get_team_match_history
-                            with st.spinner("Analysing..."):
-                                home_history = ""
-                                away_history = ""
-                                for m in get_team_match_history(home):
-                                    home_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
-                                for m in get_team_match_history(away):
-                                    away_history += f"- vs {m['opponent']}: {m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
-                                insight = get_betting_insight(
-                                    home, away,
-                                    odds_match["home_prob"],
-                                    odds_match["draw_prob"],
-                                    odds_match["away_prob"],
-                                    home_history,
-                                    away_history
-                                )
-                            st.markdown(insight)
-                    st.write("")
-else:
-    st.info("No matches scheduled today or tomorrow.")
 
 st.divider()
 
 # ── Section 5: Haiku pundit ───────────────────────────────────
-st.subheader("Haiku Pundit")
-st.caption("Select a team or group for an AI-powered briefing")
+with st.expander("Haiku Pundit", expanded=False):
+    st.caption("Select a team or group for an AI-powered briefing")
 
-pundit_mode = st.radio("Analyse by", ["Team", "Group"], horizontal=True)
+    pundit_mode = st.radio("Analyse by", ["Team", "Group"], horizontal=True)
 
-selected_team = "— select —"
-selected_group = "— select —"
+    selected_team = "— select —"
+    selected_group = "— select —"
 
-if pundit_mode == "Team":
-    all_teams = sorted(set(
-        row["team"]
-        for group_df in all_groups
-        for _, row in group_df.iterrows()
-    ))
-    selected_team = st.selectbox("Choose a team", ["— select —"] + all_teams)
-else:
-    all_group_names = [g["group"].iloc[0] for g in all_groups if not g.empty]
-    selected_group = st.selectbox("Choose a group", ["— select —"] + sorted(all_group_names))
+    if pundit_mode == "Team":
+        all_teams = sorted(set(
+            row["team"]
+            for group_df in all_groups
+            for _, row in group_df.iterrows()
+        ))
+        selected_team = st.selectbox("Choose a team", ["— select —"] + all_teams)
+    else:
+        all_group_names = [g["group"].iloc[0] for g in all_groups if not g.empty]
+        selected_group = st.selectbox("Choose a group", ["— select —"] + sorted(all_group_names))
 
-if selected_team and selected_team != "— select —":
-    team_group = next(
-        (group_df for group_df in all_groups
-         if selected_team in group_df["team"].values), None
-    )
-    team_row = None
-    if team_group is not None:
-        team_row = team_group[team_group["team"] == selected_team].iloc[0]
+    if selected_team and selected_team != "— select —":
+        team_group = next(
+            (group_df for group_df in all_groups
+             if selected_team in group_df["team"].values), None
+        )
+        team_row = None
+        if team_group is not None:
+            team_row = team_group[team_group["team"] == selected_team].iloc[0]
 
-    if st.button(f"Brief me on {selected_team} ↗"):
-        from components.haiku_pundit import get_pundit_briefing
-        from data.api_client import get_team_match_history
+        if st.button(f"Brief me on {selected_team} ↗"):
+            from components.haiku_pundit import get_pundit_briefing
+            from data.api_client import get_team_match_history
 
-        with st.spinner("Consulting the Haiku Pundit..."):
-            context = ""
-            if team_row is not None:
-                context = (
-                    f"Team: {selected_team}\n"
-                    f"Group: {team_row['group']}\n"
-                    f"Position: {int(team_row['position'])}\n"
-                    f"Points: {int(team_row['points'])}\n"
-                    f"Played: {int(team_row['played'])}\n"
-                    f"Goal difference: {team_row['gd']:+d}\n"
-                    f"Goals for: {int(team_row['gf'])}\n"
-                    f"Goals against: {int(team_row['ga'])}\n"
-                )
-
-            history = get_team_match_history(selected_team)
-            match_history = ""
-            for m in history:
-                match_history += (
-                    f"- {m['venue']} vs {m['opponent']}: "
-                    f"{m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
-                )
-
-            briefing = get_pundit_briefing(selected_team, context, match_history)
-            st.markdown(briefing)
-if pundit_mode == "Group" and selected_group and selected_group != "— select —":
-    if st.button(f"Brief me on {selected_group} ↗"):
-        from components.haiku_pundit import get_group_briefing
-        from data.api_client import get_group_remaining_fixtures
-        with st.spinner("Consulting the Haiku Pundit..."):
-            group_df = next(
-                (g for g in all_groups if g["group"].iloc[0] == selected_group), None
-            )
-            teams_data = ""
-            if group_df is not None:
-                for _, row in group_df.iterrows():
-                    teams_data += (
-                        f"- {row['team']}: Position {int(row['position'])}, "
-                        f"{int(row['points'])}pts, Played {int(row['played'])}, "
-                        f"GD {row['gd']:+d}, GF {int(row['gf'])}\n"
+            with st.spinner("Consulting the Haiku Pundit..."):
+                context = ""
+                if team_row is not None:
+                    context = (
+                        f"Team: {selected_team}\n"
+                        f"Group: {team_row['group']}\n"
+                        f"Position: {int(team_row['position'])}\n"
+                        f"Points: {int(team_row['points'])}\n"
+                        f"Played: {int(team_row['played'])}\n"
+                        f"Goal difference: {team_row['gd']:+d}\n"
+                        f"Goals for: {int(team_row['gf'])}\n"
+                        f"Goals against: {int(team_row['ga'])}\n"
                     )
 
-            remaining = get_group_remaining_fixtures(selected_group)
-            remaining_text = "\n".join(f"- {r}" for r in remaining)
+                history = get_team_match_history(selected_team)
+                match_history = ""
+                for m in history:
+                    match_history += (
+                        f"- {m['venue']} vs {m['opponent']}: "
+                        f"{m['team_goals']}-{m['opp_goals']} ({m['outcome']})\n"
+                    )
 
-            briefing = get_group_briefing(selected_group, teams_data, remaining_text)
-            st.markdown(briefing)
+                briefing = get_pundit_briefing(selected_team, context, match_history)
+                st.markdown(briefing)
 
+    if pundit_mode == "Group" and selected_group and selected_group != "— select —":
+        if st.button(f"Brief me on {selected_group} ↗"):
+            from components.haiku_pundit import get_group_briefing
+            from data.api_client import get_group_remaining_fixtures
+            with st.spinner("Consulting the Haiku Pundit..."):
+                group_df = next(
+                    (g for g in all_groups if g["group"].iloc[0] == selected_group), None
+                )
+                teams_data = ""
+                if group_df is not None:
+                    for _, row in group_df.iterrows():
+                        teams_data += (
+                            f"- {row['team']}: Position {int(row['position'])}, "
+                            f"{int(row['points'])}pts, Played {int(row['played'])}, "
+                            f"GD {row['gd']:+d}, GF {int(row['gf'])}\n"
+                        )
+
+                remaining = get_group_remaining_fixtures(selected_group)
+                remaining_text = "\n".join(f"- {r}" for r in remaining)
+
+                briefing = get_group_briefing(selected_group, teams_data, remaining_text)
+                st.markdown(briefing)
 
 # ── Section 6: Today's Storylines ────────────────────────────
 st.divider()
@@ -533,7 +519,6 @@ aest = timezone(timedelta(hours=10))
 today_str = datetime.now(aest).strftime("%A %d %B %Y")
 
 if todays_matches:
-    # Build fixtures context
     fixtures_data = ""
     is_knockout = False
     for m in todays_matches:
@@ -549,7 +534,6 @@ if todays_matches:
             is_knockout = True
         fixtures_data += f"- {label}: {home} vs {away} at {kickoff}\n"
 
-    # Build standings context only for group stage matches
     standings_data = ""
     if not is_knockout:
         relevant_groups = set(
