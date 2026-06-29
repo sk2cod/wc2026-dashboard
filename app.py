@@ -159,8 +159,6 @@ render_bracket(all_groups, wildcard_df, all_fixtures)
 st.divider()
 
 # ── Section 2: Groups + Wildcard ──────────────────────────────
-st.subheader("Group Standings")
-
 def status_badge(pos, pts, played):
     if played == 0:
         return "⬜"
@@ -170,71 +168,72 @@ def status_badge(pos, pts, played):
         return "🟡"
     return "🔴"
 
-cols = st.columns(4)
-for i, group_df in enumerate(all_groups):
-    col = cols[i % 4]
-    with col:
-        raw = group_df["group"].iloc[0]
-        group_key = "GROUP_" + raw.split()[-1]
-        group_name = raw.replace("GROUP_", "Group ").replace("_", " ").title()
-        matches_played = int(group_df["played"].sum() // 2)
-        st.markdown(f"**{group_name}** (MP-{matches_played})")
-        for _, row in group_df.iterrows():
-            badge = status_badge(row["position"], row["points"], row["played"])
-            st.markdown(
-                f"{badge} {row['team']} {get_flag_img(row['team'])} — "
-                f"**{row['points']}pts** "
-                f"(GD: {row['gd']:+d}, GF: {int(row['gf'])}, MP-{int(row['played'])})",
-                unsafe_allow_html=True
-            )
-
-        played = sorted(
-            (m for m in all_fixtures if m.get("group") == group_key and m.get("status") == "FINISHED"),
-            key=lambda m: m.get("utcDate", "")
-        )
-        if played:
-            lines = ""
-            for m in played:
-                home = m["homeTeam"]["name"]
-                away = m["awayTeam"]["name"]
-                score = m["score"]["fullTime"]
-                home_goals, away_goals = score["home"], score["away"]
-                if home_goals > away_goals:
-                    result = f"{home} win {home_goals}-{away_goals} 🏆"
-                elif away_goals > home_goals:
-                    result = f"{away} win {away_goals}-{home_goals} 🏆"
-                else:
-                    result = f"Draw {home_goals}-{away_goals} 🤝"
-                lines += (
-                    f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
-                    f"{home} vs {away} - {result}</div>"
+with st.expander("Group Standings", expanded=False):
+    cols = st.columns(4)
+    for i, group_df in enumerate(all_groups):
+        col = cols[i % 4]
+        with col:
+            raw = group_df["group"].iloc[0]
+            group_key = "GROUP_" + raw.split()[-1]
+            group_name = raw.replace("GROUP_", "Group ").replace("_", " ").title()
+            matches_played = int(group_df["played"].sum() // 2)
+            st.markdown(f"**{group_name}** (MP-{matches_played})")
+            for _, row in group_df.iterrows():
+                badge = status_badge(row["position"], row["points"], row["played"])
+                st.markdown(
+                    f"{badge} {row['team']} {get_flag_img(row['team'])} — "
+                    f"**{row['points']}pts** "
+                    f"(GD: {row['gd']:+d}, GF: {int(row['gf'])}, MP-{int(row['played'])})",
+                    unsafe_allow_html=True
                 )
-            st.markdown(
-                "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
-                "margin-top:6px;'>Results</div>" + lines,
-                unsafe_allow_html=True
-            )
 
-        upcoming = sorted(
-            (m for m in all_fixtures if m.get("group") == group_key and m.get("status") != "FINISHED"),
-            key=lambda m: m.get("utcDate", "")
-        )
-        if upcoming:
-            lines = ""
-            for m in upcoming:
-                home = m["homeTeam"]["name"]
-                away = m["awayTeam"]["name"]
-                kickoff, _, _ = utc_to_aest(m["utcDate"])
-                lines += (
-                    f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
-                    f"{home} vs {away} &nbsp;·&nbsp; {kickoff}</div>"
-                )
-            st.markdown(
-                "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
-                "margin-top:6px;'>Upcoming</div>" + lines,
-                unsafe_allow_html=True
+            played = sorted(
+                (m for m in all_fixtures if m.get("group") == group_key and m.get("status") == "FINISHED"),
+                key=lambda m: m.get("utcDate", "")
             )
-        st.write("")
+            if played:
+                lines = ""
+                for m in played:
+                    home = m["homeTeam"]["name"]
+                    away = m["awayTeam"]["name"]
+                    score = m["score"]["fullTime"]
+                    home_goals, away_goals = score["home"], score["away"]
+                    if home_goals > away_goals:
+                        result = f"{home} win {home_goals}-{away_goals} 🏆"
+                    elif away_goals > home_goals:
+                        result = f"{away} win {away_goals}-{home_goals} 🏆"
+                    else:
+                        result = f"Draw {home_goals}-{away_goals} 🤝"
+                    lines += (
+                        f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
+                        f"{home} vs {away} - {result}</div>"
+                    )
+                st.markdown(
+                    "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
+                    "margin-top:6px;'>Results</div>" + lines,
+                    unsafe_allow_html=True
+                )
+
+            upcoming = sorted(
+                (m for m in all_fixtures if m.get("group") == group_key and m.get("status") != "FINISHED"),
+                key=lambda m: m.get("utcDate", "")
+            )
+            if upcoming:
+                lines = ""
+                for m in upcoming:
+                    home = m["homeTeam"]["name"]
+                    away = m["awayTeam"]["name"]
+                    kickoff, _, _ = utc_to_aest(m["utcDate"])
+                    lines += (
+                        f"<div style='font-size:12px;color:var(--color-text-secondary);'>"
+                        f"{home} vs {away} &nbsp;·&nbsp; {kickoff}</div>"
+                    )
+                st.markdown(
+                    "<div style='font-size:14px;font-weight:600;color:var(--color-text-tertiary);"
+                    "margin-top:6px;'>Upcoming</div>" + lines,
+                    unsafe_allow_html=True
+                )
+            st.write("")
 
 st.divider()
 
